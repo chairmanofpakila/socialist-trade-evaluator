@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime as _dt
 from typing import List, Dict
 
 import streamlit as st
@@ -9,24 +8,13 @@ import streamlit as st
 from starter import search_players, last_n_averages
 
 
-def _default_season() -> str:
-    """Return an NBA season string like '2024-25' based on today."""
-    today = _dt.date.today()
-    year = today.year
-    # NBA seasons roll over in October; Oct–Dec are the start of a new season
-    if today.month >= 10:
-        start = year
-        end = (year + 1) % 100
-    else:
-        start = year - 1
-        end = (year) % 100
-    return f"{start}-{end:02d}"
+SEASON = "2025-26"
 
 
 st.set_page_config(page_title="NBA Recent Averages", page_icon="🏀", layout="wide")
 
 st.title("NBA Player Recent Averages 🏀")
-st.caption("Search a player and view last N games per-game stats and shooting percentages.")
+st.caption("Search a player and view last N games per-game stats and shooting percentages. Season fixed to 2025-26.")
 
 
 @st.cache_data(ttl=900)
@@ -35,13 +23,13 @@ def _cached_search(q: str) -> List[dict]:
 
 
 @st.cache_data(ttl=600)
-def _cached_averages(name: str, season: str, n: int) -> Dict[str, float]:
-    return last_n_averages(name, season, n)
+def _cached_averages(name: str, n: int) -> Dict[str, float]:
+    return last_n_averages(name, SEASON, n)
 
 
 with st.sidebar:
     st.header("Filters")
-    season = st.text_input("Season (e.g. 2024-25)", value=_default_season())
+    st.write(f"Season: {SEASON}")
     n_games = st.slider("Last N games", min_value=1, max_value=20, value=10)
 
     st.divider()
@@ -93,15 +81,14 @@ if selection and selection != "—":
     chosen = matches[i]
     player_name = str(chosen.get("full_name", ""))
     st.subheader(player_name)
-    st.caption("Regular season only; pulled from nba_api PlayerGameLog.")
+    st.caption(f"Regular season only; season {SEASON}; pulled from nba_api PlayerGameLog.")
 
     with st.spinner("Fetching last N game averages..."):
         try:
-            averages = _cached_averages(player_name, season, n_games)
+            averages = _cached_averages(player_name, n_games)
         except Exception as e:
             st.error(f"Failed to fetch game log for {player_name}: {e}")
         else:
             _render_metrics(averages)
 else:
     placeholder.info("Use the sidebar to search and select a player.")
-

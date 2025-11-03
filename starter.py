@@ -1,6 +1,53 @@
 from __future__ import annotations
 from nba_api.stats.static import players as static_players
 from nba_api.stats.endpoints import playergamelog
+import os
+
+# Configure nba_api HTTP behavior early to avoid 403/blocks in some environments.
+def _configure_nba_api() -> None:
+    try:
+        # Prefer HTTPS and set conservative rate limit
+        os.environ.setdefault("NBA_API_USE_HTTPS", "true")
+        from nba_api.stats.library.http import NBAStatsHTTP  # type: ignore
+
+        # Robust default headers to satisfy stats.nba.com/Akamai checks
+        hdrs = {
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Origin": "https://www.nba.com",
+            "Referer": "https://www.nba.com/",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Connection": "keep-alive",
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache",
+            # Hints used by nba.com
+            "x-nba-stats-origin": "stats",
+            "x-nba-stats-token": "true",
+        }
+
+        # Some versions expose _DEFAULT_HEADERS, others _HEADERS; try both.
+        if hasattr(NBAStatsHTTP, "_DEFAULT_HEADERS"):
+            NBAStatsHTTP._DEFAULT_HEADERS.update(hdrs)  # type: ignore[attr-defined]
+        if hasattr(NBAStatsHTTP, "_HEADERS"):
+            try:
+                NBAStatsHTTP._HEADERS.update(hdrs)  # type: ignore[attr-defined]
+            except Exception:
+                NBAStatsHTTP._HEADERS = hdrs  # type: ignore[attr-defined]
+
+        # Tweak timeouts and rate limit for hosted environments
+        if hasattr(NBAStatsHTTP, "_TIMEOUT"):
+            NBAStatsHTTP._TIMEOUT = 30  # type: ignore[attr-defined]
+        if hasattr(NBAStatsHTTP, "_RATE_LIMIT"):
+            NBAStatsHTTP._RATE_LIMIT = 1  # type: ignore[attr-defined]
+    except Exception:
+        # Best-effort only; if this fails, nba_api will use its defaults
+        pass
+
+_configure_nba_api()
 from typing import List, Dict, Tuple
 
 def find_player_id(full_name: str) -> int:
@@ -253,7 +300,8 @@ def print_comparison(team1_name: str, s1: Dict[str, float], team2_name: str, s2:
 
 if __name__ == "__main__":
     print("Fantasy trade helper - compare two teams using last-N games per-player averages.")
-    season = input("Season (e.g., 2025-26) [default 2025-26]: ").strip() or "2025-26"
+    # Fixed season per request
+    season = "2025-26"
     try:
         n_in = input("Number of most recent games to use [10]: ").strip() or "10"
         n = int(n_in)
