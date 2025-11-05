@@ -5,6 +5,7 @@ from typing import List, Dict
 import streamlit as st
 
 # Reuse your existing logic from starter.py
+# Import after Streamlit to avoid heavy imports during Streamlit's config phase.
 from starter import search_players, last_n_averages
 
 
@@ -45,7 +46,7 @@ with st.sidebar:
                 matches = []
 
     names = [f"{m.get('full_name')}" + (" (ACTIVE)" if m.get('is_active') else "") for m in matches]
-    selection = st.selectbox("Select player", options=["—"] + names, index=0)
+    selection = st.selectbox("Select player", options=["<select>"] + names, index=0)
 
 
 def _render_metrics(avg: Dict[str, float]) -> None:
@@ -76,7 +77,7 @@ def _render_metrics(avg: Dict[str, float]) -> None:
 
 placeholder = st.empty()
 
-if selection and selection != "—":
+if selection and selection != "<select>":
     i = names.index(selection)
     chosen = matches[i]
     player_name = str(chosen.get("full_name", ""))
@@ -92,3 +93,4 @@ if selection and selection != "—":
             _render_metrics(averages)
 else:
     placeholder.info("Use the sidebar to search and select a player.")
+
